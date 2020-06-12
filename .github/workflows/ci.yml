@@ -1,0 +1,61 @@
+name: CI
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - 'LICENSE.md'
+      - 'README.md'
+      - '.github/ISSUE_TEMPLATE'
+      - '.github/CODE_OF_CONDUCT.md'
+      - '.github/CONTRIBUTING.md'
+      - '.github/pull_request_template.md'
+      - '.github/SECURITY.md'
+      - '.github/SUPPORT.md'
+      - '.github/CompatHelper.yml'
+  pull_request:
+    branches:
+      - master
+    paths-ignore:
+      - 'LICENSE.md'
+      - 'README.md'
+      - '.github/ISSUE_TEMPLATE'
+      - '.github/CODE_OF_CONDUCT.md'
+      - '.github/CONTRIBUTING.md'
+      - '.github/pull_request_template.md'
+      - '.github/SECURITY.md'
+      - '.github/SUPPORT.md'
+      - '.github/CompatHelper.yml'
+  release:
+    types:
+      - created
+
+jobs:
+  ci:
+    services:
+      selenium: 
+        image: selenium/standalone-chrome:4
+        ports:
+        - 4444/tcp
+        options: --health-cmd '/opt/bin/check-grid.sh'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        julia-version: [1.4.0]
+        julia-arch: [x64]
+        os: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@1
+        with:
+          version: ${{ matrix.julia-version }}
+      - uses: julia-actions/julia-buildpkg@v0.1
+      - uses: julia-actions/julia-runtest@v0.1
+        env:
+          WEBDRIVER_HOST: localhost
+          WEBDRIVER_PORT: ${{ job.services.selenium.ports[4444] }}
+      - uses: julia-actions/julia-docdeploy@releases/v1
+        env:
+          WEBDRIVER_HOST: localhost
+          WEBDRIVER_PORT: ${{ job.services.selenium.ports[4444] }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
