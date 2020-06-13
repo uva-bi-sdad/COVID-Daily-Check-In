@@ -47,13 +47,13 @@ function checkin(wd::RemoteWebDriver,
                  working::Bool = true,
                  essential::Bool = false,
                  leave::Union{Bool, AbstractString} = false,
-                 email::Bool = true,
+                 email::AbstractString = "",
                  test::Bool = false)
     # date = today()
     # working = true
     # essential = false
     # leave = false
-    # email = true
+    # email = "jbs3hp@virginia.edu"
     # test = false
     session = Session(wd)
     navigate!(session, URL)
@@ -66,10 +66,14 @@ function checkin(wd::RemoteWebDriver,
     working!(session, working)
     essential!(session, essential)
     leave!(session, leave)
-    if email
+    if !isempty(email)
         element = Element(session, "xpath", """//*[@name="EMAIL_RECEIPT_CHECKBOX"]""")
         click!(element)
         @assert parse(Bool, element_attr(element, "value"))
+        element = Element(session, "xpath", """//*[@id="text_box_EMAIL_RECEIPT"]""")
+        script!(session, "arguments[0].value = arguments[1];", element, "")
+        element_keys!(element, email)
+        @assert element_attr(element, "value") == email
     end
     submit = Element(session, "xpath", """//*[@data-client-id="form_submit_btn"]""")
     if !test
