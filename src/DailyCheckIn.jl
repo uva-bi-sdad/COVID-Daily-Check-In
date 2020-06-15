@@ -24,7 +24,6 @@ const URL = "https://app.smartsheet.com/b/form/d4ff720727c74ed0bfa80bf5541babee"
             surname::AbstractString,
             division::AbstractString,
             health::AbstractString;
-            date::Date = today(),
             working::Bool = true,
             essential::Bool = false,
             leave::Union{Bool, AbstractString} = false,
@@ -43,13 +42,11 @@ function checkin(wd::RemoteWebDriver,
                  surname::AbstractString,
                  division::AbstractString,
                  health::AbstractString;
-                 date::Date = today(),
                  working::Bool = true,
                  essential::Bool = false,
                  leave::Union{Bool, AbstractString} = false,
                  email::AbstractString = "",
                  test::Bool = false)
-    # date = today()
     # working = true
     # essential = false
     # leave = false
@@ -60,11 +57,11 @@ function checkin(wd::RemoteWebDriver,
     @assert current_url(session) == URL
     givenname!(session, givenname)
     surname!(session, surname)
+    date!(session)
     division!(session, division)
-    health!(session, health)
-    date!(session, date)
     working!(session, working)
     essential!(session, essential)
+    health!(session, health)
     leave!(session, leave)
     if !isempty(email)
         element = Element(session, "xpath", """//*[@name="EMAIL_RECEIPT_CHECKBOX"]""")
@@ -77,8 +74,12 @@ function checkin(wd::RemoteWebDriver,
     end
     submit = Element(session, "xpath", """//*[@data-client-id="form_submit_btn"]""")
     if !test
+        # write("x.html", source(session))
         click!(submit)
+        # using Base64: base64decode
+        # write("img.png", base64decode(screenshot(session)))
     end
+    current_url(session) == URL
     delete!(session)
     nothing
 end
@@ -117,7 +118,7 @@ function givenname!(session::Session, givenname::AbstractString)
     nothing
 end
 """
-    date!(session::Session, date::Date = today())::Nothing
+    date!(session::Session)::Nothing
 
 Fill out the date.
 
@@ -126,11 +127,14 @@ julia> DailyCheckIn.date!(session)
 
 ```
 """
-function date!(session::Session, date::Date = today())
-    date = format(today(), DATEFORMAT)
+function date!(session::Session)
+    open_cal = Element(session, "xpath", """//*[@title="Choose a date"]""")
+    click!(open_cal)
+    sleep(2)
+    element = Element(session, "xpath", """//*[contains(@class, "CalendarDay__today")]""")
+    click!(element)
     element = Element(session, "xpath", """//*[@id="date_Date"]""")
-    script!(session, "arguments[0].value = arguments[1];", element, date)
-    @assert element_attr(element, "value") == date
+    @assert element_attr(element, "value") == format(today(), DATEFORMAT)
     nothing
 end
 """
@@ -235,21 +239,24 @@ julia> DailyCheckIn.leave!(session, "Something came up")
 ```
 """
 function leave!(session::Session, leave::Union{Bool, AbstractString} = false)
-    open_options = Element(session, "xpath", """//*[@id="MkRPlP2"]/div/div/div[1]""")
+    open_options = Elements(session, "xpath", """//*[@class="css-1wy0on6 react-select__indicators"]""")[3]
     click!(open_options)
     options = Elements(session, "xpath", """//div[@class="css-11unzgr react-select__menu-list"]/div""")
     choices = element_text.(options)
     if isa(leave, Bool)
         choice = options[findfirst(isequal(leave ? "Yes - Planned Time Off" : "No"), choices)]
         click!(choice)
-        @assert element_text(open_options) == (leave ? "Yes - Planned Time Off" : "No")
+        check_val = Elements(session, "xpath", """//*[@class="css-o6m1t9-singleValue react-select__single-value"]""")[3]
+        @assert element_text(check_val) == (leave ? "Yes - Planned Time Off" : "No")
     else
         choice = options[findfirst(isequal("Other"), choices)]
         click!(choice)
         open_options = Element(session, "xpath", """//*[@id="yDazpp1"]/div/div/div[1]/div[1]""")
         @assert element_text(open_options) == "Other"
-        extra = Element(session, "xpath", """//*[@name="2QWMeW9"]""")
-        script!(session, "arguments[0].value = arguments[1];", extra, "")
+    end
+    extra = Element(session, "xpath", """//*[@name="2QWMeW9"]""")
+    script!(session, "arguments[0].value = arguments[1];", extra, "")
+    if !isa(leave, Bool)
         element_keys!(extra, leave)
         @assert element_attr(extra, "value") == leave
     end

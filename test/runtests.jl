@@ -10,6 +10,7 @@ using DailyCheckIn, Test, Documenter
                          surname = "Santiago Calderón";
                          division = "SDAD";
                          health = "good";
+                         email = "jbs3hp@virginia.edu";
                          wd = RemoteWebDriver(
                              Capabilities("chrome"),
                              host = get(ENV, "WEBDRIVER_HOST", "localhost"),
